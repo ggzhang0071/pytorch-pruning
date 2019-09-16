@@ -17,7 +17,8 @@ from dataset import data_loading
 import time
 import os
 os.getcwd()
-os.chdir('../..')
+#os.chdir('../..')
+
 class ModifiedVGG16Model(torch.nn.Module):
     def __init__(self):
         super(ModifiedVGG16Model, self).__init__()
@@ -99,8 +100,8 @@ class FilterPrunner:
     def normalize_ranks_per_layer(self):
         for i in self.filter_ranks:
             v = torch.abs(self.filter_ranks[i])
-            v = v / np.sqrt(torch.sum(v * v))
-            self.filter_ranks[i] = v.cpu()
+            v = v / np.sqrt(torch.sum(v * v).cpu().numpy())
+            self.filter_ranks[i] = v
 
     def get_prunning_plan(self, num_filters_to_prune):
         filters_to_prune = self.lowest_ranking_filters(num_filters_to_prune)
@@ -128,9 +129,6 @@ class FilterPrunner:
 class PrunningFineTuner_VGG16:
     def __init__(self,roots,datasets,batch_size, model):
         [self.train_data_loader,self.test_data_loader]=data_loading(roots,datasets,batch_size)
-        #self.train_data_loader = dataset.loader(train_path)
-        #self.test_data_loader = dataset.test_loader(test_path)
-
         self.model = model
         self.criterion = torch.nn.CrossEntropyLoss()
         self.prunner = FilterPrunner(self.model) 
@@ -269,7 +267,7 @@ if __name__ == '__main__':
     if args.train:
         model = ModifiedVGG16Model()
     elif args.prune:
-        model = torch.load("model", map_location=lambda storage, loc: storage)
+        model = torch.load("model"+datasets, map_location=lambda storage, loc: storage)
 
     if args.use_cuda:
         model = model.cuda()
@@ -278,7 +276,8 @@ if __name__ == '__main__':
 
     if args.train:
         fine_tuner.train(epoches=12)
-        torch.save(model, "model")
+        torch.save(model, "model"+datasets)
 
     elif args.prune:
         fine_tuner.prune()
+        torch.save(model, "model"+datasets+'Pruned')
