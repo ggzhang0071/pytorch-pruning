@@ -13,8 +13,11 @@ from prune import *
 import argparse
 from operator import itemgetter
 from heapq import nsmallest
+from dataset import data_loading
 import time
-
+import os
+os.getcwd()
+os.chdir('../..')
 class ModifiedVGG16Model(torch.nn.Module):
     def __init__(self):
         super(ModifiedVGG16Model, self).__init__()
@@ -27,12 +30,12 @@ class ModifiedVGG16Model(torch.nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(25088, 4096),
+            nn.Linear(512, 200),
             nn.ReLU(inplace=True),
             nn.Dropout(),
-            nn.Linear(4096, 4096),
+            nn.Linear(200, 200),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, 2))
+            nn.Linear(200, 10))
 
     def forward(self, x):
         x = self.features(x)
@@ -123,9 +126,10 @@ class FilterPrunner:
         return filters_to_prune             
 
 class PrunningFineTuner_VGG16:
-    def __init__(self, train_path, test_path, model):
-        self.train_data_loader = dataset.loader(train_path)
-        self.test_data_loader = dataset.test_loader(test_path)
+    def __init__(self,roots,datasets,batch_size, model):
+        [self.train_data_loader,self.test_data_loader]=data_loading(roots,datasets,batch_size)
+        #self.train_data_loader = dataset.loader(train_path)
+        #self.test_data_loader = dataset.test_loader(test_path)
 
         self.model = model
         self.criterion = torch.nn.CrossEntropyLoss()
@@ -246,9 +250,9 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", dest="train", action="store_true")
     parser.add_argument("--prune", dest="prune", action="store_true")
-    parser.add_argument("--train_path", type = str, default = "train")
-    parser.add_argument("--test_path", type = str, default = "test")
-    parser.add_argument('--use-cuda', action='store_true', default=False, help='Use NVIDIA GPU acceleration')    
+    parser.add_argument("--train_path", type = str, default = "/git/data")
+    parser.add_argument("--test_path", type = str, default = "/git/data")
+    parser.add_argument('--use-cuda', action='store_true', default=True, help='Use NVIDIA GPU acceleration')    
     parser.set_defaults(train=False)
     parser.set_defaults(prune=False)
     args = parser.parse_args()
@@ -258,7 +262,10 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
-
+    datasets='CIFAR10'
+    batch_size = 10  # 批处理大小
+    #CIFAR10      
+    
     if args.train:
         model = ModifiedVGG16Model()
     elif args.prune:
@@ -267,10 +274,10 @@ if __name__ == '__main__':
     if args.use_cuda:
         model = model.cuda()
 
-    fine_tuner = PrunningFineTuner_VGG16(args.train_path, args.test_path, model)
+    fine_tuner = PrunningFineTuner_VGG16(args.train_path, datasets,batch_size, model)
 
     if args.train:
-        fine_tuner.train(epoches=10)
+        fine_tuner.train(epoches=12)
         torch.save(model, "model")
 
     elif args.prune:
